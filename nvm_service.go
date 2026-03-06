@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -35,6 +36,12 @@ func (s *NvmService) execCommand(timeout time.Duration, args ...string) (string,
 
 	cmd := exec.CommandContext(ctx, "nvm", args...)
 	cmd.Env = os.Environ()
+	
+	// 隐藏命令行窗口 (Windows)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+	}
 
 	output, err := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
@@ -122,6 +129,20 @@ func (s *NvmService) ListInstalled() ([]NodeVersion, error) {
 	return versions, nil
 }
 
+// execHiddenCommand executes a command with hidden window
+func (s *NvmService) execHiddenCommand(name string, args ...string) (string, error) {
+	cmd := exec.Command(name, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000,
+	}
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return string(output), nil
+}
+
 // GetCurrent returns the current Node.js and npm versions
 func (s *NvmService) GetCurrent() (*CurrentInfo, error) {
 	info := &CurrentInfo{}
@@ -141,14 +162,12 @@ func (s *NvmService) GetCurrent() (*CurrentInfo, error) {
 		info.NodeVersion = strings.TrimSpace(currentOutput)
 	}
 
-	nodeCmd := exec.Command("node", "-v")
-	if nodeOutput, err := nodeCmd.Output(); err == nil {
-		info.NodeVersion = strings.TrimPrefix(strings.TrimSpace(string(nodeOutput)), "v")
+	if nodeOutput, err := s.execHiddenCommand("node", "-v"); err == nil {
+		info.NodeVersion = strings.TrimPrefix(strings.TrimSpace(nodeOutput), "v")
 	}
 
-	npmCmd := exec.Command("npm", "-v")
-	if npmOutput, err := npmCmd.Output(); err == nil {
-		info.NpmVersion = strings.TrimSpace(string(npmOutput))
+	if npmOutput, err := s.execHiddenCommand("npm", "-v"); err == nil {
+		info.NpmVersion = strings.TrimSpace(npmOutput)
 	}
 
 	return info, nil
