@@ -1,0 +1,27 @@
+# Build output
+build/bin/
+*.exe
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Frontend build
+frontend/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Local config
+.env
+.env.local
