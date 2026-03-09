@@ -61,3 +61,8 @@ func (a *App) GetAvailableVersions() ([]RemoteVersion, error) {
 func (a *App) GetGlobalNpmPackages() ([]GlobalNpmPackage, error) {
 	return a.nvmService.ListGlobalNpmPackages()
 }
+
+// UninstallGlobalNpmPackage removes a globally installed npm package
+func (a *App) UninstallGlobalNpmPackage(name string) error {
+	return a.nvmService.UninstallGlobalNpmPackage(name)
+}

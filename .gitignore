@@ -3,6 +3,7 @@ build/bin/
 *.exe
 
 .magi/
+.gocache/
 
 # Dependencies
 node_modules/

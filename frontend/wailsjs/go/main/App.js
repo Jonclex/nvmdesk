@@ -26,6 +26,10 @@ export function IsNvmAvailable() {
   return window['go']['main']['App']['IsNvmAvailable']();
 }
 
+export function UninstallGlobalNpmPackage(arg1) {
+  return window['go']['main']['App']['UninstallGlobalNpmPackage'](arg1);
+}
+
 export function UninstallVersion(arg1) {
   return window['go']['main']['App']['UninstallVersion'](arg1);
 }

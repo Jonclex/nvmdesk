@@ -366,6 +366,25 @@ func (s *NvmService) ListGlobalNpmPackages() ([]GlobalNpmPackage, error) {
 	return packages, nil
 }
 
+// UninstallGlobalNpmPackage removes a globally installed npm package from the current Node environment
+func (s *NvmService) UninstallGlobalNpmPackage(name string) error {
+	packageName := strings.TrimSpace(name)
+	if packageName == "" {
+		return fmt.Errorf("包名不能为空")
+	}
+
+	if _, err := exec.LookPath("npm"); err != nil {
+		return fmt.Errorf("未检测到 npm，请先切换到可用的 Node.js 版本")
+	}
+
+	_, err := s.execNamedCommand(2*time.Minute, "npm", "uninstall", "-g", packageName)
+	if err != nil {
+		return fmt.Errorf("卸载全局 npm 包失败: %s", err.Error())
+	}
+
+	return nil
+}
+
 func calculateDirectorySize(root string) (int64, error) {
 	var totalSize int64
 	err := filepath.WalkDir(root, func(_ string, d fs.DirEntry, err error) error {

@@ -14,6 +14,8 @@ export function InstallVersion(arg1:string):Promise<void>;
 
 export function IsNvmAvailable():Promise<boolean>;
 
+export function UninstallGlobalNpmPackage(arg1:string):Promise<void>;
+
 export function UninstallVersion(arg1:string):Promise<void>;
 
 export function UseVersion(arg1:string):Promise<void>;

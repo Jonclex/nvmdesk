@@ -1,13 +1,28 @@
 ﻿import React from 'react';
-import { Button, Card, Empty, Space, Table, Tag, Tooltip, Typography } from 'antd';
-import { AppstoreOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Button, Card, Empty, message, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { AppstoreOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { GlobalNpmPackage, useNvmStore } from '../stores/nvmStore';
 
 const { Text } = Typography;
 
 const NpmPackageList: React.FC = () => {
-  const { currentInfo, fetchGlobalPackages, globalPackages, isNvmAvailable, loadingPackages } = useNvmStore();
+  const {
+    currentInfo,
+    deletingPackage,
+    fetchGlobalPackages,
+    globalPackages,
+    isNvmAvailable,
+    loadingPackages,
+    uninstallGlobalPackage,
+  } = useNvmStore();
+
+  const handleUninstall = async (name: string) => {
+    const success = await uninstallGlobalPackage(name);
+    if (success) {
+      message.success(`已卸载全局 npm 包 ${name}`);
+    }
+  };
 
   const columns: ColumnsType<GlobalNpmPackage> = [
     {
@@ -43,6 +58,30 @@ const NpmPackageList: React.FC = () => {
       defaultSortOrder: 'descend',
       render: (sizeLabel: string) => <Text strong>{sizeLabel}</Text>,
     },
+    {
+      title: '操作',
+      key: 'action',
+      width: 120,
+      render: (_value, record) => (
+        <Popconfirm
+          title="确认卸载"
+          description={`确定要卸载全局 npm 包 ${record.name} 吗？`}
+          okText="确定"
+          cancelText="取消"
+          onConfirm={() => handleUninstall(record.name)}
+        >
+          <Button
+            danger
+            size="small"
+            icon={<DeleteOutlined />}
+            loading={deletingPackage === record.name}
+            disabled={loadingPackages || deletingPackage !== null}
+          >
+            删除
+          </Button>
+        </Popconfirm>
+      ),
+    },
   ];
 
   return (
@@ -63,7 +102,7 @@ const NpmPackageList: React.FC = () => {
             icon={<ReloadOutlined />}
             loading={loadingPackages}
             onClick={fetchGlobalPackages}
-            disabled={!isNvmAvailable}
+            disabled={!isNvmAvailable || deletingPackage !== null}
           >
             刷新
           </Button>

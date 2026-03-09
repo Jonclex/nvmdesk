@@ -6,6 +6,7 @@ import {
   GetVersionList,
   InstallVersion,
   IsNvmAvailable,
+  UninstallGlobalNpmPackage,
   UninstallVersion,
   UseVersion,
 } from '../../wailsjs/go/main/App';
@@ -51,6 +52,7 @@ interface NvmState {
   loading: boolean;
   loadingAvailable: boolean;
   loadingPackages: boolean;
+  deletingPackage: string | null;
   installingVersion: string | null;
   logs: LogEntry[];
 
@@ -60,6 +62,7 @@ interface NvmState {
   fetchCurrentInfo: () => Promise<void>;
   fetchGlobalPackages: () => Promise<void>;
   installVersion: (version: string) => Promise<boolean>;
+  uninstallGlobalPackage: (name: string) => Promise<boolean>;
   useVersion: (version: string) => Promise<boolean>;
   uninstallVersion: (version: string) => Promise<boolean>;
   addLog: (message: string, level: LogEntry['level']) => void;
@@ -83,6 +86,7 @@ export const useNvmStore = create<NvmState>((set, get) => ({
   loading: false,
   loadingAvailable: false,
   loadingPackages: false,
+  deletingPackage: null,
   installingVersion: null,
   logs: [],
 
@@ -175,6 +179,22 @@ export const useNvmStore = create<NvmState>((set, get) => ({
       set({ installingVersion: null });
       return false;
     }
+  },
+
+  uninstallGlobalPackage: async (name) => {
+	set({ deletingPackage: name });
+	get().addLog(`正在卸载全局 npm 包 ${name}...`, 'info');
+	try {
+	  await UninstallGlobalNpmPackage(name);
+	  get().addLog(`全局 npm 包 ${name} 已卸载。`, 'success');
+	  await get().fetchGlobalPackages();
+	  set({ deletingPackage: null });
+	  return true;
+	} catch (error) {
+	  get().addLog(`卸载全局 npm 包失败: ${error}`, 'error');
+	  set({ deletingPackage: null });
+	  return false;
+	}
   },
 
   useVersion: async (version) => {
