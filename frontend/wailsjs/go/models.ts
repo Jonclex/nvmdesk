@@ -18,6 +18,26 @@ export namespace main {
 	        this.nvmRoot = source["nvmRoot"];
 	    }
 	}
+	export class GlobalNpmPackage {
+	    name: string;
+	    version: string;
+	    path: string;
+	    sizeBytes: number;
+	    sizeLabel: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new GlobalNpmPackage(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.version = source["version"];
+	        this.path = source["path"];
+	        this.sizeBytes = source["sizeBytes"];
+	        this.sizeLabel = source["sizeLabel"];
+	    }
+	}
 	export class NodeVersion {
 	    version: string;
 	    isCurrent: boolean;

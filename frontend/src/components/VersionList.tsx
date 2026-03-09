@@ -1,20 +1,19 @@
-import React, { useState } from 'react';
-import { Card, Table, Button, Space, Tag, Popconfirm, Empty, message } from 'antd';
+﻿import React, { useState } from 'react';
+import { Button, Card, Empty, message, Popconfirm, Space, Table, Tag } from 'antd';
 import {
-  PlusOutlined,
-  SwapOutlined,
-  DeleteOutlined,
-  ReloadOutlined,
   CheckCircleFilled,
+  DeleteOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+  SwapOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { useNvmStore, NodeVersion } from '../stores/nvmStore';
 import InstallModal from './InstallModal';
+import { NodeVersion, useNvmStore } from '../stores/nvmStore';
 
 const VersionList: React.FC = () => {
   const [installModalOpen, setInstallModalOpen] = useState(false);
-  const { versions, loading, isNvmAvailable, useVersion, uninstallVersion, refreshAll } =
-    useNvmStore();
+  const { versions, loading, isNvmAvailable, refreshAll, uninstallVersion, useVersion } = useNvmStore();
 
   const handleUse = async (version: string) => {
     const success = await useVersion(version);
@@ -49,8 +48,8 @@ const VersionList: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 200,
-      render: (_: unknown, record: NodeVersion) => (
+      width: 220,
+      render: (_value, record) => (
         <Space size="small">
           <Button
             type="primary"
@@ -121,19 +120,14 @@ const VersionList: React.FC = () => {
             emptyText: (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description={
-                  isNvmAvailable ? '暂无已安装的 Node.js 版本' : 'NVM 不可用'
-                }
+                description={isNvmAvailable ? '暂无已安装的 Node.js 版本' : 'NVM 不可用'}
               />
             ),
           }}
         />
       </Card>
 
-      <InstallModal
-        open={installModalOpen}
-        onClose={() => setInstallModalOpen(false)}
-      />
+      <InstallModal open={installModalOpen} onClose={() => setInstallModalOpen(false)} />
     </>
   );
 };

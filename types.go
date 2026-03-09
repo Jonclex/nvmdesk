@@ -20,6 +20,15 @@ type CurrentInfo struct {
 	NvmRoot     string `json:"nvmRoot"`
 }
 
+// GlobalNpmPackage represents a globally installed npm package
+type GlobalNpmPackage struct {
+	Name      string `json:"name"`
+	Version   string `json:"version"`
+	Path      string `json:"path"`
+	SizeBytes int64  `json:"sizeBytes"`
+	SizeLabel string `json:"sizeLabel"`
+}
+
 // LogEntry represents a log entry
 type LogEntry struct {
 	Time    string `json:"time"`

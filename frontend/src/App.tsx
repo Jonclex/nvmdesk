@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
-import { ConfigProvider, Layout, Typography, Spin } from 'antd';
+﻿import { useEffect } from 'react';
+import { ConfigProvider, Layout, Spin, Typography } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
+import LogPanel from './components/LogPanel';
+import NpmPackageList from './components/NpmPackageList';
 import StatusCard from './components/StatusCard';
 import VersionList from './components/VersionList';
-import LogPanel from './components/LogPanel';
 import { useNvmStore } from './stores/nvmStore';
 
 const { Header, Content } = Layout;
@@ -14,7 +15,7 @@ function App() {
 
   useEffect(() => {
     refreshAll();
-  }, []);
+  }, [refreshAll]);
 
   return (
     <ConfigProvider locale={zhCN}>
@@ -37,6 +38,7 @@ function App() {
           <Spin spinning={loading && !isNvmAvailable} tip="正在检测 NVM...">
             <StatusCard />
             <VersionList />
+            <NpmPackageList />
             <LogPanel />
           </Spin>
         </Content>

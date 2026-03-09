@@ -6,6 +6,8 @@ export function GetAvailableVersions():Promise<Array<main.RemoteVersion>>;
 
 export function GetCurrentVersion():Promise<main.CurrentInfo>;
 
+export function GetGlobalNpmPackages():Promise<Array<main.GlobalNpmPackage>>;
+
 export function GetVersionList():Promise<Array<main.NodeVersion>>;
 
 export function InstallVersion(arg1:string):Promise<void>;

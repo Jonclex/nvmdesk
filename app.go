@@ -56,3 +56,8 @@ func (a *App) UninstallVersion(version string) error {
 func (a *App) GetAvailableVersions() ([]RemoteVersion, error) {
 	return a.nvmService.ListAvailable()
 }
+
+// GetGlobalNpmPackages returns globally installed npm packages for current Node environment
+func (a *App) GetGlobalNpmPackages() ([]GlobalNpmPackage, error) {
+	return a.nvmService.ListGlobalNpmPackages()
+}

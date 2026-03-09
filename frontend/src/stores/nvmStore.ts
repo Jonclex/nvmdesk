@@ -1,12 +1,13 @@
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 import {
-  IsNvmAvailable,
-  GetVersionList,
-  GetCurrentVersion,
-  InstallVersion,
-  UseVersion,
-  UninstallVersion,
   GetAvailableVersions,
+  GetCurrentVersion,
+  GetGlobalNpmPackages,
+  GetVersionList,
+  InstallVersion,
+  IsNvmAvailable,
+  UninstallVersion,
+  UseVersion,
 } from '../../wailsjs/go/main/App';
 
 export interface NodeVersion {
@@ -26,6 +27,14 @@ export interface CurrentInfo {
   nvmRoot: string;
 }
 
+export interface GlobalNpmPackage {
+  name: string;
+  version: string;
+  path: string;
+  sizeBytes: number;
+  sizeLabel: string;
+}
+
 export interface LogEntry {
   id: string;
   time: string;
@@ -36,10 +45,12 @@ export interface LogEntry {
 interface NvmState {
   versions: NodeVersion[];
   availableVersions: RemoteVersion[];
+  globalPackages: GlobalNpmPackage[];
   currentInfo: CurrentInfo | null;
   isNvmAvailable: boolean;
   loading: boolean;
   loadingAvailable: boolean;
+  loadingPackages: boolean;
   installingVersion: string | null;
   logs: LogEntry[];
 
@@ -47,6 +58,7 @@ interface NvmState {
   fetchVersions: () => Promise<void>;
   fetchAvailableVersions: () => Promise<void>;
   fetchCurrentInfo: () => Promise<void>;
+  fetchGlobalPackages: () => Promise<void>;
   installVersion: (version: string) => Promise<boolean>;
   useVersion: (version: string) => Promise<boolean>;
   uninstallVersion: (version: string) => Promise<boolean>;
@@ -60,42 +72,41 @@ const formatTime = (): string => {
   return now.toLocaleTimeString('zh-CN', { hour12: false });
 };
 
-const generateId = (): string => {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
-};
+const generateId = (): string => Date.now().toString(36) + Math.random().toString(36).slice(2);
 
 export const useNvmStore = create<NvmState>((set, get) => ({
   versions: [],
   availableVersions: [],
+  globalPackages: [],
   currentInfo: null,
   isNvmAvailable: false,
   loading: false,
   loadingAvailable: false,
+  loadingPackages: false,
   installingVersion: null,
   logs: [],
 
-  addLog: (message: string, level: LogEntry['level']) => {
+  addLog: (message, level) => {
     const log: LogEntry = {
       id: generateId(),
       time: formatTime(),
       message,
       level,
     };
+
     set((state) => ({
       logs: [log, ...state.logs].slice(0, 200),
     }));
   },
 
-  clearLogs: () => {
-    set({ logs: [] });
-  },
+  clearLogs: () => set({ logs: [] }),
 
   checkNvmAvailable: async () => {
     try {
       const available = await IsNvmAvailable();
       set({ isNvmAvailable: available });
       if (!available) {
-        get().addLog('未检测到 nvm，请先安装 nvm-windows', 'error');
+        get().addLog('未检测到 nvm，请先安装 nvm-windows。', 'error');
       }
     } catch (error) {
       set({ isNvmAvailable: false });
@@ -108,7 +119,7 @@ export const useNvmStore = create<NvmState>((set, get) => ({
     try {
       const versions = await GetVersionList();
       set({ versions: versions || [], loading: false });
-      get().addLog('获取版本列表成功', 'info');
+      get().addLog('已获取本地 Node.js 版本列表。', 'info');
     } catch (error) {
       set({ versions: [], loading: false });
       get().addLog(`获取版本列表失败: ${error}`, 'error');
@@ -120,10 +131,10 @@ export const useNvmStore = create<NvmState>((set, get) => ({
     try {
       const versions = await GetAvailableVersions();
       set({ availableVersions: versions || [], loadingAvailable: false });
-      get().addLog('获取可用版本列表成功', 'info');
+      get().addLog('已获取可安装的 Node.js 版本。', 'info');
     } catch (error) {
       set({ availableVersions: [], loadingAvailable: false });
-      get().addLog(`获取可用版本列表失败: ${error}`, 'error');
+      get().addLog(`获取可安装版本失败: ${error}`, 'error');
     }
   },
 
@@ -132,18 +143,31 @@ export const useNvmStore = create<NvmState>((set, get) => ({
       const info = await GetCurrentVersion();
       set({ currentInfo: info });
     } catch (error) {
-      get().addLog(`获取当前版本信息失败: ${error}`, 'error');
+      get().addLog(`获取当前环境信息失败: ${error}`, 'error');
     }
   },
 
-  installVersion: async (version: string) => {
+  fetchGlobalPackages: async () => {
+    set({ loadingPackages: true });
+    try {
+      const packages = await GetGlobalNpmPackages();
+      set({ globalPackages: packages || [], loadingPackages: false });
+      get().addLog('已获取当前 Node 环境的全局 npm 包。', 'info');
+    } catch (error) {
+      set({ globalPackages: [], loadingPackages: false });
+      get().addLog(`获取全局 npm 包失败: ${error}`, 'warning');
+    }
+  },
+
+  installVersion: async (version) => {
     set({ installingVersion: version });
     get().addLog(`开始安装 Node.js ${version}...`, 'info');
     try {
       await InstallVersion(version);
-      get().addLog(`Node.js ${version} 安装成功`, 'success');
+      get().addLog(`Node.js ${version} 安装成功。`, 'success');
       await get().fetchVersions();
       await get().fetchCurrentInfo();
+      await get().fetchGlobalPackages();
       set({ installingVersion: null });
       return true;
     } catch (error) {
@@ -153,14 +177,15 @@ export const useNvmStore = create<NvmState>((set, get) => ({
     }
   },
 
-  useVersion: async (version: string) => {
+  useVersion: async (version) => {
     set({ loading: true });
     get().addLog(`正在切换到 Node.js ${version}...`, 'info');
     try {
       await UseVersion(version);
-      get().addLog(`已切换到 Node.js ${version}`, 'success');
+      get().addLog(`已切换到 Node.js ${version}。`, 'success');
       await get().fetchVersions();
       await get().fetchCurrentInfo();
+      await get().fetchGlobalPackages();
       set({ loading: false });
       return true;
     } catch (error) {
@@ -170,14 +195,15 @@ export const useNvmStore = create<NvmState>((set, get) => ({
     }
   },
 
-  uninstallVersion: async (version: string) => {
+  uninstallVersion: async (version) => {
     set({ loading: true });
     get().addLog(`正在卸载 Node.js ${version}...`, 'info');
     try {
       await UninstallVersion(version);
-      get().addLog(`Node.js ${version} 已卸载`, 'success');
+      get().addLog(`Node.js ${version} 已卸载。`, 'success');
       await get().fetchVersions();
       await get().fetchCurrentInfo();
+      await get().fetchGlobalPackages();
       set({ loading: false });
       return true;
     } catch (error) {
@@ -193,6 +219,7 @@ export const useNvmStore = create<NvmState>((set, get) => ({
     if (get().isNvmAvailable) {
       await get().fetchVersions();
       await get().fetchCurrentInfo();
+      await get().fetchGlobalPackages();
     }
     set({ loading: false });
   },

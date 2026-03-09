@@ -10,6 +10,10 @@ export function GetCurrentVersion() {
   return window['go']['main']['App']['GetCurrentVersion']();
 }
 
+export function GetGlobalNpmPackages() {
+  return window['go']['main']['App']['GetGlobalNpmPackages']();
+}
+
 export function GetVersionList() {
   return window['go']['main']['App']['GetVersionList']();
 }

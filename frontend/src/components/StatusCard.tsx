@@ -1,5 +1,5 @@
-import React from 'react';
-import { Card, Descriptions, Tag, Alert, Spin } from 'antd';
+﻿import React from 'react';
+import { Alert, Card, Descriptions, Spin, Tag } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, NodeIndexOutlined } from '@ant-design/icons';
 import { useNvmStore } from '../stores/nvmStore';
 
@@ -9,8 +9,8 @@ const StatusCard: React.FC = () => {
   if (!isNvmAvailable) {
     return (
       <Alert
-        message="NVM 未检测到"
-        description="请先安装 nvm-windows 并确保其在系统 PATH 中，然后重启应用。"
+        message="未检测到 NVM"
+        description="请先安装 nvm-windows，并确认其已加入系统 PATH，然后重启应用。"
         type="error"
         showIcon
         style={{ marginBottom: 16 }}
@@ -23,7 +23,7 @@ const StatusCard: React.FC = () => {
       title={
         <span>
           <NodeIndexOutlined style={{ marginRight: 8 }} />
-          当前状态
+          当前环境
         </span>
       }
       size="small"
@@ -43,17 +43,13 @@ const StatusCard: React.FC = () => {
             )}
           </Descriptions.Item>
           <Descriptions.Item label="npm">
-            {currentInfo?.npmVersion ? (
-              <Tag color="blue">v{currentInfo.npmVersion}</Tag>
-            ) : (
-              <Tag color="default">-</Tag>
-            )}
+            {currentInfo?.npmVersion ? <Tag color="blue">v{currentInfo.npmVersion}</Tag> : <Tag>-</Tag>}
           </Descriptions.Item>
           <Descriptions.Item label="NVM">
             {currentInfo?.nvmVersion ? (
               <Tag color="purple">v{currentInfo.nvmVersion}</Tag>
             ) : (
-              <Tag color="default">-</Tag>
+              <Tag>-</Tag>
             )}
           </Descriptions.Item>
           <Descriptions.Item label="NVM 目录">

@@ -1,10 +1,13 @@
-package main
+﻿package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -15,6 +18,14 @@ import (
 
 // NvmService handles all nvm command operations
 type NvmService struct{}
+
+type npmPackageMeta struct {
+	Version string `json:"version"`
+}
+
+type npmListOutput struct {
+	Dependencies map[string]npmPackageMeta `json:"dependencies"`
+}
 
 // NewNvmService creates a new NvmService instance
 func NewNvmService() *NvmService {
@@ -31,16 +42,19 @@ func (s *NvmService) ValidateVersion(version string) bool {
 
 // execCommand executes an nvm command with timeout
 func (s *NvmService) execCommand(timeout time.Duration, args ...string) (string, error) {
+	return s.execNamedCommand(timeout, "nvm", args...)
+}
+
+// execNamedCommand executes a command with timeout and hidden window
+func (s *NvmService) execNamedCommand(timeout time.Duration, name string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "nvm", args...)
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Env = os.Environ()
-	
-	// 隐藏命令行窗口 (Windows)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow:    true,
-		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+		CreationFlags: 0x08000000,
 	}
 
 	output, err := cmd.CombinedOutput()
@@ -59,7 +73,7 @@ func (s *NvmService) CheckNvmAvailable() (bool, error) {
 	if err != nil {
 		return false, nil
 	}
-	
+
 	output, err := s.execCommand(10*time.Second, "version")
 	if err != nil {
 		return false, nil
@@ -82,7 +96,7 @@ func (s *NvmService) GetNvmRoot() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -102,7 +116,7 @@ func (s *NvmService) ListInstalled() ([]NodeVersion, error) {
 
 	var versions []NodeVersion
 	lines := strings.Split(output, "\n")
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.Contains(line, "No installations") {
@@ -110,10 +124,9 @@ func (s *NvmService) ListInstalled() ([]NodeVersion, error) {
 		}
 
 		isCurrent := strings.HasPrefix(line, "*")
-		
 		line = strings.TrimPrefix(line, "*")
 		line = strings.TrimSpace(line)
-		
+
 		parts := strings.Fields(line)
 		if len(parts) > 0 {
 			version := parts[0]
@@ -131,16 +144,7 @@ func (s *NvmService) ListInstalled() ([]NodeVersion, error) {
 
 // execHiddenCommand executes a command with hidden window
 func (s *NvmService) execHiddenCommand(name string, args ...string) (string, error) {
-	cmd := exec.Command(name, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		HideWindow:    true,
-		CreationFlags: 0x08000000,
-	}
-	output, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return string(output), nil
+	return s.execNamedCommand(10*time.Second, name, args...)
 }
 
 // GetCurrent returns the current Node.js and npm versions
@@ -246,7 +250,7 @@ func parseVersion(version string) (major, minor, patch int) {
 func compareVersions(v1, v2 string) bool {
 	major1, minor1, patch1 := parseVersion(v1)
 	major2, minor2, patch2 := parseVersion(v2)
-	
+
 	if major1 != major2 {
 		return major1 > major2
 	}
@@ -266,27 +270,23 @@ func (s *NvmService) ListAvailable() ([]RemoteVersion, error) {
 	var versions []RemoteVersion
 	versionSet := make(map[string]bool)
 	lines := strings.Split(output, "\n")
-	
-	// nvm list available 输出格式是表格形式，包含 LTS 和 Current 版本
-	// 跳过表头行
+
 	headerPassed := false
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		
-		// 跳过分隔线和表头
+
 		if strings.Contains(line, "---") || strings.Contains(line, "LTS") || strings.Contains(line, "CURRENT") {
 			headerPassed = true
 			continue
 		}
-		
+
 		if !headerPassed {
 			continue
 		}
 
-		// 解析每行的版本号
 		parts := strings.Fields(line)
 		for _, part := range parts {
 			part = strings.TrimSpace(part)
@@ -302,15 +302,101 @@ func (s *NvmService) ListAvailable() ([]RemoteVersion, error) {
 		}
 	}
 
-	// 按版本号降序排序（最新版本在前）
 	sort.Slice(versions, func(i, j int) bool {
 		return compareVersions(versions[i].Version, versions[j].Version)
 	})
 
-	// 只返回最新的 20 个版本
 	if len(versions) > 20 {
 		versions = versions[:20]
 	}
 
 	return versions, nil
+}
+
+// ListGlobalNpmPackages returns globally installed npm packages for the current Node environment
+func (s *NvmService) ListGlobalNpmPackages() ([]GlobalNpmPackage, error) {
+	if _, err := exec.LookPath("npm"); err != nil {
+		return nil, fmt.Errorf("未检测到 npm，请先切换到可用的 Node.js 版本")
+	}
+
+	rootOutput, err := s.execNamedCommand(15*time.Second, "npm", "root", "-g")
+	if err != nil {
+		return nil, fmt.Errorf("获取全局 npm 目录失败: %s", err.Error())
+	}
+
+	globalRoot := strings.TrimSpace(rootOutput)
+	if globalRoot == "" {
+		return []GlobalNpmPackage{}, nil
+	}
+
+	listOutput, err := s.execNamedCommand(30*time.Second, "npm", "ls", "-g", "--depth=0", "--json")
+	if err != nil {
+		return nil, fmt.Errorf("获取全局 npm 包列表失败: %s", err.Error())
+	}
+
+	var npmList npmListOutput
+	if err := json.Unmarshal([]byte(listOutput), &npmList); err != nil {
+		return nil, fmt.Errorf("解析全局 npm 包列表失败: %s", err.Error())
+	}
+
+	packages := make([]GlobalNpmPackage, 0, len(npmList.Dependencies))
+	for name, meta := range npmList.Dependencies {
+		packagePath := filepath.Join(globalRoot, filepath.FromSlash(name))
+		sizeBytes, sizeErr := calculateDirectorySize(packagePath)
+		if sizeErr != nil && !os.IsNotExist(sizeErr) {
+			sizeBytes = 0
+		}
+
+		packages = append(packages, GlobalNpmPackage{
+			Name:      name,
+			Version:   meta.Version,
+			Path:      packagePath,
+			SizeBytes: sizeBytes,
+			SizeLabel: formatBytes(sizeBytes),
+		})
+	}
+
+	sort.Slice(packages, func(i, j int) bool {
+		if packages[i].SizeBytes == packages[j].SizeBytes {
+			return packages[i].Name < packages[j].Name
+		}
+		return packages[i].SizeBytes > packages[j].SizeBytes
+	})
+
+	return packages, nil
+}
+
+func calculateDirectorySize(root string) (int64, error) {
+	var totalSize int64
+	err := filepath.WalkDir(root, func(_ string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		totalSize += info.Size()
+		return nil
+	})
+	return totalSize, err
+}
+
+func formatBytes(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+
+	return fmt.Sprintf("%.2f %ciB", float64(size)/float64(div), "KMGTPE"[exp])
 }
