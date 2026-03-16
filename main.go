@@ -14,6 +14,7 @@ var assets embed.FS
 
 func main() {
 	app := NewApp()
+	app.tray = newTrayController()
 
 	err := wails.Run(&options.App{
 		Title:     "NVM Desktop Manager",
@@ -26,6 +27,8 @@ func main() {
 		},
 		BackgroundColour: &options.RGBA{R: 255, G: 255, B: 255, A: 1},
 		OnStartup:        app.startup,
+		OnBeforeClose:    app.beforeClose,
+		OnShutdown:       app.shutdown,
 		Bind: []interface{}{
 			app,
 		},

@@ -2,12 +2,16 @@ package main
 
 import (
 	"context"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App struct - main application structure exposed to frontend
 type App struct {
 	ctx        context.Context
 	nvmService *NvmService
+	tray       trayController
+	isQuitting bool
 }
 
 // NewApp creates a new App application struct
@@ -20,6 +24,51 @@ func NewApp() *App {
 // startup is called when the app starts
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	if a.tray != nil {
+		a.tray.Init(a)
+	}
+}
+
+func (a *App) beforeClose(ctx context.Context) bool {
+	if a.isQuitting {
+		return false
+	}
+
+	runtime.WindowHide(ctx)
+	return true
+}
+
+func (a *App) shutdown(ctx context.Context) {
+	if a.tray != nil {
+		a.tray.Dispose()
+	}
+}
+
+func (a *App) showMainWindow() {
+	if a.ctx == nil {
+		return
+	}
+
+	runtime.WindowUnminimise(a.ctx)
+	runtime.WindowShow(a.ctx)
+	a.refreshFrontend()
+}
+
+func (a *App) quitFromTray() {
+	if a.ctx == nil {
+		return
+	}
+
+	a.isQuitting = true
+	runtime.Quit(a.ctx)
+}
+
+func (a *App) refreshFrontend() {
+	if a.ctx == nil {
+		return
+	}
+
+	runtime.EventsEmit(a.ctx, "tray:refresh")
 }
 
 // IsNvmAvailable checks if nvm is available in the system

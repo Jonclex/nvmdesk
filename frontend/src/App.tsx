@@ -1,6 +1,7 @@
 ﻿import { useEffect } from 'react';
 import { ConfigProvider, Layout, Spin, Typography } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
+import { EventsOn } from '../wailsjs/runtime/runtime';
 import LogPanel from './components/LogPanel';
 import NpmPackageList from './components/NpmPackageList';
 import StatusCard from './components/StatusCard';
@@ -15,6 +16,16 @@ function App() {
 
   useEffect(() => {
     refreshAll();
+  }, [refreshAll]);
+
+  useEffect(() => {
+    const dispose = EventsOn('tray:refresh', () => {
+      void refreshAll();
+    });
+
+    return () => {
+      dispose();
+    };
   }, [refreshAll]);
 
   return (
