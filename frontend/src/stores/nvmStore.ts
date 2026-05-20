@@ -68,6 +68,7 @@ interface NvmState {
   addLog: (message: string, level: LogEntry['level']) => void;
   clearLogs: () => void;
   refreshAll: () => Promise<void>;
+  refreshCoreData: () => Promise<void>;
 }
 
 const formatTime = (): string => {
@@ -119,13 +120,12 @@ export const useNvmStore = create<NvmState>((set, get) => ({
   },
 
   fetchVersions: async () => {
-    set({ loading: true });
     try {
       const versions = await GetVersionList();
-      set({ versions: versions || [], loading: false });
+      set({ versions: versions || [] });
       get().addLog('已获取本地 Node.js 版本列表。', 'info');
     } catch (error) {
-      set({ versions: [], loading: false });
+      set({ versions: [] });
       get().addLog(`获取版本列表失败: ${error}`, 'error');
     }
   },
@@ -169,8 +169,7 @@ export const useNvmStore = create<NvmState>((set, get) => ({
     try {
       await InstallVersion(version);
       get().addLog(`Node.js ${version} 安装成功。`, 'success');
-      await get().fetchVersions();
-      await get().fetchCurrentInfo();
+      await get().refreshCoreData();
       await get().fetchGlobalPackages();
       set({ installingVersion: null });
       return true;
@@ -203,8 +202,7 @@ export const useNvmStore = create<NvmState>((set, get) => ({
     try {
       await UseVersion(version);
       get().addLog(`已切换到 Node.js ${version}。`, 'success');
-      await get().fetchVersions();
-      await get().fetchCurrentInfo();
+      await get().refreshCoreData();
       await get().fetchGlobalPackages();
       set({ loading: false });
       return true;
@@ -221,8 +219,7 @@ export const useNvmStore = create<NvmState>((set, get) => ({
     try {
       await UninstallVersion(version);
       get().addLog(`Node.js ${version} 已卸载。`, 'success');
-      await get().fetchVersions();
-      await get().fetchCurrentInfo();
+      await get().refreshCoreData();
       await get().fetchGlobalPackages();
       set({ loading: false });
       return true;
@@ -237,10 +234,13 @@ export const useNvmStore = create<NvmState>((set, get) => ({
     set({ loading: true });
     await get().checkNvmAvailable();
     if (get().isNvmAvailable) {
-      await get().fetchVersions();
-      await get().fetchCurrentInfo();
-      await get().fetchGlobalPackages();
+      await get().refreshCoreData();
+      void get().fetchGlobalPackages();
     }
     set({ loading: false });
+  },
+
+  refreshCoreData: async () => {
+    await Promise.all([get().fetchVersions(), get().fetchCurrentInfo()]);
   },
 }));

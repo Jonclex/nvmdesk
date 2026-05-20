@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/fs"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -51,7 +49,6 @@ func (s *NvmService) execNamedCommand(timeout time.Duration, name string, args .
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Env = os.Environ()
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow:    true,
 		CreationFlags: 0x08000000,
@@ -342,25 +339,17 @@ func (s *NvmService) ListGlobalNpmPackages() ([]GlobalNpmPackage, error) {
 	packages := make([]GlobalNpmPackage, 0, len(npmList.Dependencies))
 	for name, meta := range npmList.Dependencies {
 		packagePath := filepath.Join(globalRoot, filepath.FromSlash(name))
-		sizeBytes, sizeErr := calculateDirectorySize(packagePath)
-		if sizeErr != nil && !os.IsNotExist(sizeErr) {
-			sizeBytes = 0
-		}
-
 		packages = append(packages, GlobalNpmPackage{
 			Name:      name,
 			Version:   meta.Version,
 			Path:      packagePath,
-			SizeBytes: sizeBytes,
-			SizeLabel: formatBytes(sizeBytes),
+			SizeBytes: 0,
+			SizeLabel: "待计算",
 		})
 	}
 
 	sort.Slice(packages, func(i, j int) bool {
-		if packages[i].SizeBytes == packages[j].SizeBytes {
-			return packages[i].Name < packages[j].Name
-		}
-		return packages[i].SizeBytes > packages[j].SizeBytes
+		return packages[i].Name < packages[j].Name
 	})
 
 	return packages, nil
@@ -383,39 +372,4 @@ func (s *NvmService) UninstallGlobalNpmPackage(name string) error {
 	}
 
 	return nil
-}
-
-func calculateDirectorySize(root string) (int64, error) {
-	var totalSize int64
-	err := filepath.WalkDir(root, func(_ string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-
-		info, err := d.Info()
-		if err != nil {
-			return err
-		}
-		totalSize += info.Size()
-		return nil
-	})
-	return totalSize, err
-}
-
-func formatBytes(size int64) string {
-	const unit = 1024
-	if size < unit {
-		return fmt.Sprintf("%d B", size)
-	}
-
-	div, exp := int64(unit), 0
-	for n := size / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-
-	return fmt.Sprintf("%.2f %ciB", float64(size)/float64(div), "KMGTPE"[exp])
 }

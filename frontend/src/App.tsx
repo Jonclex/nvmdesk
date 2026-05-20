@@ -1,4 +1,4 @@
-﻿import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ConfigProvider, Layout, Spin, Typography } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { EventsOn } from '../wailsjs/runtime/runtime';
@@ -13,9 +13,15 @@ const { Title } = Typography;
 
 function App() {
   const { refreshAll, loading, isNvmAvailable } = useNvmStore();
+  const initializedRef = useRef(false);
 
   useEffect(() => {
-    refreshAll();
+    if (initializedRef.current) {
+      return;
+    }
+
+    initializedRef.current = true;
+    void refreshAll();
   }, [refreshAll]);
 
   useEffect(() => {
